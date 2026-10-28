@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   } catch {
     return Response.json({ message: "Send a valid JSON request." }, { status: 400 });
   }
-  const portal = (process.env.PORTAL_API_URL ?? "http://localhost:8000/api").replace(/\/$/, "");
+  const portal = (process.env.PORTAL_API_URL ?? "https://165.245.192.26/api").replace(/\/$/, "");
   try {
     const response = await fetch(`${portal}/cybersource/checkout/${action}`, {
       method: "POST",
