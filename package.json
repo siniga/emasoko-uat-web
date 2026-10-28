@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --experimental-https --hostname localhost",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
