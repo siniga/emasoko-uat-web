@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 
 // Keep portal connectivity server-side; Cybersource keys stay in Laravel.
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
-  if (process.env.NODE_ENV !== "development") {
+  if (process.env.NODE_ENV !== "development" && process.env.CHECKOUT_ENABLED !== "true") {
     return Response.json({ message: "This checkout is currently available for local testing only." }, { status: 404 });
   }
-  if (request.headers.get("origin") !== request.nextUrl.origin) {
+  // Configure the public frontend origin when HTTPS terminates at a proxy.
+  const checkoutOrigin = process.env.CHECKOUT_ORIGIN ?? request.nextUrl.origin;
+  if (request.headers.get("origin") !== checkoutOrigin) {
     return Response.json({ message: "Checkout requests must come from this application." }, { status: 403 });
   }
   const { action } = await context.params;
