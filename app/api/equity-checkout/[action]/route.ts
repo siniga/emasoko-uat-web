@@ -21,8 +21,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     return Response.json({ message: "Send a valid JSON request." }, { status: 400 });
   }
   const portal = (process.env.PORTAL_API_URL ?? "https://165.245.192.26/api").replace(/\/$/, "");
+  const endpoint = action === "context"
+    ? `${portal}/cybersource/capture-context`
+    : `${portal}/cybersource/authorize`;
   try {
-    const response = await fetch(`${portal}/cybersource/checkout/${action}`, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(body),
