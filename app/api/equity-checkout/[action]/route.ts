@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     return Response.json({ message: "Checkout requests must come from this application." }, { status: 403 });
   }
   const { action } = await context.params;
-  if (action !== "context" && action !== "authorize") {
+  if (!["context", "begin", "status"].includes(action)) {
     return Response.json({ message: "Unknown checkout action." }, { status: 404 });
   }
   let body: unknown;
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const portal = (process.env.PORTAL_API_URL ?? "https://165.245.192.26/api").replace(/\/$/, "");
   const endpoint = action === "context"
     ? `${portal}/cybersource/capture-context`
-    : `${portal}/cybersource/authorize`;
+    : `${portal}/cybersource/checkout/${action}`;
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -48,6 +48,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       expires_at: data.expires_at,
       target_origin: data.target_origin,
       environment: data.environment,
+      flow: data.flow,
+      proceed: data.proceed,
+      paid: data.paid,
+      verified: data.verified,
       payment_id: data.payment_id,
       payment_status: data.payment_status,
       authorization_hold_possible: data.authorization_hold_possible,
@@ -55,10 +59,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     }, { status: response.status, headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json({
-      message: action === "authorize"
+      message: action !== "context"
         ? "The payment outcome is unconfirmed. Check Business Center before trying another payment."
         : "Cannot reach the portal API. Start Laravel and check PORTAL_API_URL in .env.local.",
-      ...(action === "authorize" ? { payment_status: "UNKNOWN" } : {}),
+      ...(action !== "context" ? { payment_status: "UNKNOWN" } : {}),
     }, { status: 502, headers: { "Cache-Control": "no-store" } });
   }
 }
