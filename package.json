@@ -7,7 +7,9 @@
     "dev:https": "next dev --experimental-https --hostname localhost",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:wallet": "node --test tests/wallet-data.test.mjs tests/wallet-login.test.mjs tests/wallet-request.test.mjs",
+    "test:wallet:api": "node --test tests/wallet-api.test.mjs"
   },
   "dependencies": {
     "next": "16.4.2",

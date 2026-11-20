@@ -52,3 +52,27 @@
 .wallet-shell #sidebar-menu .wallet-submenu > li > a:hover { background: #eef3fb !important; color: #153567 !important; border-radius: 4px !important; }
 .wallet-shell #sidebar-menu .wallet-submenu > li > .wallet-submenuActive { background: #eef3fb; color: #153567; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .wallet-shell #sidebar-menu .wallet-groupChevron { transition: none; } }
+
+/* Wallet overview uses the same cards, forms, colours and spacing as portal Blade views. */
+.wallet-shell .wallet-signin { max-width: 480px; border: 1px solid #dce6f5; border-radius: 5px; }
+.wallet-shell .wallet-signin > .card-body { padding: 30px; }
+.wallet-shell .wallet-overview { max-width: 1100px; }
+.wallet-shell .wallet-toolbar, .wallet-shell .wallet-balanceCard { border: 1px solid #dce6f5; border-radius: 5px; }
+.wallet-businessPicker { flex: 1 1 300px; max-width: 540px; }
+.wallet-shell .wallet-balanceHero { color: #fff; background: linear-gradient(120deg, #153567, #23467c); border: 0; border-radius: 5px; }
+.wallet-balanceHero > .card-body { padding: 28px; }
+.wallet-balanceHero .wallet-balanceLabel { font-size: 14px; font-weight: 500; color: #fff; margin: 0; }
+.wallet-balanceValue { font-size: clamp(28px, 4vw, 40px); font-weight: 600; font-variant-numeric: tabular-nums; margin: 14px 0 10px; overflow-wrap: anywhere; }
+.wallet-balanceHelp { color: #e0e9f6; margin: 0; max-width: 570px; }
+.wallet-heroIcon { font-size: 28px; opacity: .8; }
+.wallet-balanceCard .bx { font-size: 22px; color: #153567; }
+.wallet-secondaryValue { color: #153567; font-size: clamp(22px, 3vw, 28px); font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; margin-bottom: 10px; }
+.wallet-updated { font-size: 12px; }
+.wallet-shell .wallet-loading { max-width: 1100px; }
+@media (max-width: 575px) {
+  .wallet-shell .wallet-signin > .card-body, .wallet-balanceHero > .card-body { padding: 22px; }
+  .wallet-businessPicker { max-width: 100%; min-width: 0; }
+}
+.wallet-simulator fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.wallet-simulator .badge { white-space: nowrap; }
+.wallet-simulator small { overflow-wrap: anywhere; }

@@ -32,7 +32,7 @@ export default function WalletShell({ children, activePage = "wallet" }: { child
             </button>
             <span className={"wallet-headerTitle"}>Subscriber portal</span>
           </div>
-          <span className={"wallet-preview"}>{activePage === "wallet" ? "Wallet preview" : "Equity Checkout"}</span>
+          <span className={"wallet-preview"}>{activePage === "wallet" ? "Wallet" : "Equity Checkout"}</span>
         </div>
       </header>
 
@@ -46,9 +46,12 @@ export default function WalletShell({ children, activePage = "wallet" }: { child
               </button>
               <ul id="wallet-submenu" className="list-unstyled sub-menu wallet-submenu" hidden={expandedGroup !== "wallet"}>
                 {[
+                  { label: "Overview", href: "/wallet", icon: "bx-wallet" },
                   { label: "Collections", href: "/wallet/collections", icon: "bx-transfer-alt" },
+                  { label: "Statement", href: "/wallet/statement", icon: "bx-list-ul" },
                   { label: "Withdrawals", href: "/wallet/withdrawals", icon: "bx-building-house" },
                   { label: "Disbursements", href: "/wallet/disbursements", icon: "bx-mobile-alt" },
+                  { label: "Simulations", href: "/wallet/simulations", icon: "bx-test-tube" },
                 ].map(({ label, href, icon }) => (
                   <li key={href}>
                     <Link href={href} className={pathname === href ? "wallet-submenuActive" : ""} aria-current={pathname === href ? "page" : undefined} onClick={() => setMenuOpen(false)}><i className={`bx ${icon}`} aria-hidden="true" /><span>{label}</span></Link>

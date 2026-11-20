@@ -33,6 +33,7 @@ type UnifiedPayments = {
 };
 type Receipt = { checkout_id: string; reference: string; amount: string; currency: string; payment_id?: string; environment: "production" | "test" };
 const receiptKey = "equity-checkout-receipt";
+const steps = ["Payment details", "Secure card entry", "Complete payment"];
 type AcceptInstance = {
   unifiedPayments: (sidebar: boolean) => Promise<UnifiedPayments>;
   dispose: () => void;
@@ -100,8 +101,17 @@ export default function EquityCheckout() {
   const generation = useRef(0);
   const preparing = useRef(false);
   const authorizing = useRef(false);
+  const stepHeading = useRef<HTMLHeadingElement | null>(null);
+  const previousStage = useRef(0);
   const expired = !!session && remaining <= 0;
-  const stage = result ? 3 : token ? 2 : session ? 1 : 0;
+  const stage = result && !submitting ? 2 : session && (!expired || submitted) ? 1 : 0;
+  const paid = !!(result?.paid && result.verified);
+
+  useEffect(() => {
+    if (previousStage.current === stage) return;
+    previousStage.current = stage;
+    stepHeading.current?.focus();
+  }, [stage]);
 
   useEffect(() => {
     setSecure(window.location.protocol === "https:");
@@ -127,6 +137,7 @@ export default function EquityCheckout() {
     generation.current++;
     instance.current?.dispose();
     instance.current = null;
+    paymentsInstance.current = null;
     setCollecting(false);
     setToken(null);
   }, [expired, submitted]);
@@ -163,6 +174,19 @@ export default function EquityCheckout() {
     finally { preparing.current = false; setBusy(false); }
   }
 
+  function editPaymentDetails() {
+    if (authorizing.current || submitted) return;
+    generation.current++;
+    instance.current?.dispose();
+    instance.current = null;
+    paymentsInstance.current = null;
+    setSession(null);
+    setCollecting(false);
+    setToken(null);
+    setConsent(false);
+    setError("");
+  }
+
   async function openCardForm() {
     if (!session || collecting || token || expired) return;
     const current = generation.current;
@@ -177,6 +201,7 @@ export default function EquityCheckout() {
       if (current !== generation.current) { accept.dispose(); return; }
       instance.current = accept;
       const payments = await accept.unifiedPayments(false);
+      if (current !== generation.current) return;
       paymentsInstance.current = payments;
       const transientToken = await payments.show({ containers: {
         paymentSelection: "#equity-payment-selection", paymentScreen: "#equity-payment-screen",
@@ -254,32 +279,42 @@ export default function EquityCheckout() {
           <nav aria-label="Breadcrumb"><ol className="breadcrumb m-0"><li className="breadcrumb-item"><Link href="/">eMakato</Link></li><li className="breadcrumb-item active" aria-current="page">Equity Checkout</li></ol></nav>
         </div>
         <div className="eq-heading"><div><p className="wallet-eyebrow">Card payments · Equity</p><h2>Make a card payment</h2><p>Pay securely with your Visa or Mastercard.</p></div><span className="eq-live"><span /> {environment === "production" ? "Live payments" : environment === "test" ? "Test payments" : "Secure checkout"}</span></div>
-        <ol className="eq-steps" aria-label="Checkout progress">{["Payment details", "Secure card entry", "Complete payment"].map((label, index) => (
-          <li key={label} className={stage >= index ? "is-active" : ""} aria-current={stage === index ? "step" : undefined}><span>{stage > index ? "✓" : index + 1}</span>{label}</li>
+        <ol className="eq-steps" aria-label="Checkout progress">{steps.map((label, index) => (
+          <li key={label} className={stage >= index ? "is-active" : ""} aria-current={stage === index ? "step" : undefined}><span>{stage > index || paid ? "✓" : index + 1}</span>{label}</li>
         ))}</ol>
         <div className="eq-grid"><div className="eq-content">
           {secure === false && <div className="eq-notice eq-warning" role="alert"><strong>Open checkout over HTTPS</strong><p>Run <code>npm run dev:https</code> and open <a href="https://localhost:3000/equity-checkout">https://localhost:3000/equity-checkout</a>. Cybersource requires the page address to match its configured HTTPS origin.</p></div>}
           {error && <div className="eq-notice eq-error" role="alert"><strong>Checkout needs your attention</strong><p>{error}</p></div>}
           {expired && !submitted && <div className="eq-notice eq-warning" role="alert"><strong>Your checkout session expired</strong><p>Prepare a new checkout below to continue. No payment was submitted from this page.</p></div>}
-          <section className="eq-card" aria-labelledby="eq-details-title"><div className="eq-card-heading"><span className="eq-section-icon"><i className="bx bx-receipt" aria-hidden="true" /></span><div><h2 id="eq-details-title">Payment details</h2><p>Choose the amount and currency for this payment.</p></div></div>
-            <form onSubmit={prepare}><fieldset disabled={busy || collecting || submitted}><div className="eq-field-grid">
-              <div><label htmlFor="eq-amount">Amount</label><input id="eq-amount" name="amount" inputMode="decimal" type="number" min="0.01" max="99999999.99" step="0.01" required value={amount} onChange={e => { setAmount(e.target.value); setSession(null); setToken(null); generation.current++; instance.current?.dispose(); }} /></div>
-              <div><label htmlFor="eq-currency">Currency</label><select id="eq-currency" value={currency} onChange={e => { setCurrency(e.target.value); setSession(null); setToken(null); generation.current++; instance.current?.dispose(); }}><option value="TZS">TZS · Tanzanian shilling</option><option value="USD">USD · US dollar</option><option value="KES">KES · Kenyan shilling</option></select></div>
+          {stage === 0 && <section className="eq-card" aria-labelledby="eq-details-title"><div className="eq-card-heading"><span className="eq-section-icon"><i className="bx bx-receipt" aria-hidden="true" /></span><div><h2 id="eq-details-title" ref={stepHeading} tabIndex={-1}>{steps[0]}</h2><p>Choose the amount and currency for this payment.</p></div></div>
+            <form onSubmit={prepare}><fieldset disabled={busy || submitted}><div className="eq-field-grid">
+              <div><label htmlFor="eq-amount">Amount</label><input id="eq-amount" name="amount" inputMode="decimal" type="number" min="0.01" max="99999999.99" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} /></div>
+              <div><label htmlFor="eq-currency">Currency</label><select id="eq-currency" value={currency} onChange={e => setCurrency(e.target.value)}><option value="TZS">TZS · Tanzanian shilling</option><option value="USD">USD · US dollar</option><option value="KES">KES · Kenyan shilling</option></select></div>
             </div><p className="eq-hint">Use a currency enabled for your merchant account.</p>
-              <button className="eq-button eq-primary" disabled={secure !== true || busy || collecting || submitted} type="submit">{busy ? "Preparing checkout…" : session && !expired ? "Prepare a new checkout" : "Prepare checkout"}<span aria-hidden="true">→</span></button>
+              <button className="eq-button eq-primary" disabled={secure !== true || busy || submitted} type="submit">{busy ? "Preparing checkout…" : "Prepare checkout"}<span aria-hidden="true">→</span></button>
             </fieldset></form>
             <p className="eq-footnote"><i className="bx bx-info-circle" aria-hidden="true" /> Preparing checkout does not charge your card.</p>
-          </section>
-          <section className={`eq-card ${!session || expired ? "eq-card-waiting" : ""}`} aria-labelledby="eq-card-title"><div className="eq-card-heading"><span className="eq-section-icon"><i className="bx bx-credit-card" aria-hidden="true" /></span><div><h2 id="eq-card-title">Pay by card</h2><p>Your card details are entered in Cybersource’s secure form.</p></div><div className="eq-networks"><span>VISA</span><span className="eq-mastercard" aria-label="Mastercard"><b /><b /></span></div></div>
-            {!session ? <div className="eq-placeholder"><i className="bx bx-lock-alt" aria-hidden="true" /><h3>Your secure payment form will appear here</h3><p>Prepare your checkout to get started.</p></div> : <>
-              {!token && !result && !expired && <button type="button" className="eq-button eq-outline" disabled={collecting || busy} onClick={openCardForm}>{collecting ? "Complete the secure form below" : "Open secure card form"}</button>}
-              <div id="equity-payment-selection" className="eq-sdk-container" hidden={!submitting && (!!token || !!result || expired)} />
-              <div id="equity-payment-screen" className="eq-sdk-container" hidden={!submitting && (!!token || !!result || expired)} />
-              {token && !expired && !result && <div className="eq-token-ready"><span aria-hidden="true">✓</span><div><strong>Card details securely collected</strong><p>Ready to pay {money(session.amount, session.currency)}.</p></div></div>}
-            </>}
-            {token && !expired && !result && <div className="eq-authorize"><label className="eq-consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={submitted} /><span>I authorize a payment of <strong>{money(session!.amount, session!.currency)}</strong> on my card{session?.environment === "test" ? " in the test environment" : ""}.</span></label><button type="button" className="eq-button eq-primary" onClick={authorize} disabled={!consent || submitted || submitting}>{submitting ? "Processing payment…" : `Pay ${money(session!.amount, session!.currency)}`}</button></div>}
-            {result && <div className={`eq-result ${result.paid && result.verified ? "eq-result-success" : "eq-result-attention"}`} role="status"><h3>{resultTitle}</h3><p>{result.paid && result.verified ? "CyberSource confirmed that your payment settled." : result.message || result.error_information?.message || "Collection is not yet confirmed. Check this reference before paying again."}</p><dl><dt>Status</dt><dd>{result.payment_status || "UNKNOWN"}</dd>{result.payment_id && <><dt>Payment ID</dt><dd>{result.payment_id}</dd></>}<dt>Reference</dt><dd>{result.reference || session?.reference || receipt?.reference}</dd></dl>{receipt && <button type="button" className="eq-button eq-outline" disabled={checking || submitting} onClick={() => checkStatus()}>{checking ? "Checking…" : "Check payment status"}</button>}{result.paid && result.verified && <button type="button" className="eq-button eq-outline" onClick={newPayment}>Start a new payment</button>}</div>}
-          </section>
+          </section>}
+          {stage === 1 && session && <section className="eq-card" aria-labelledby="eq-card-title">
+            {!submitted && <button type="button" className="eq-button eq-outline eq-back" onClick={editPaymentDetails}><span aria-hidden="true">←</span> Back to payment details</button>}
+            <div className="eq-card-heading"><span className="eq-section-icon"><i className="bx bx-credit-card" aria-hidden="true" /></span><div><h2 id="eq-card-title" ref={stepHeading} tabIndex={-1}>{steps[1]}</h2><p>Your card details are entered in Cybersource’s secure form.</p></div><div className="eq-networks"><span>VISA</span><span className="eq-mastercard" aria-label="Mastercard"><b /><b /></span></div></div>
+            {!token && !submitted && <button type="button" className="eq-button eq-outline" disabled={collecting} onClick={openCardForm}>{collecting ? "Complete the secure form below" : "Open secure card form"}</button>}
+            <div id="equity-payment-selection" className="eq-sdk-container" hidden={!submitting && !!token} />
+            <div id="equity-payment-screen" className="eq-sdk-container" hidden={!submitting && !!token} />
+            {token && !submitted && <div className="eq-token-ready"><span aria-hidden="true">✓</span><div><strong>Card details securely collected</strong><p>Ready to pay {money(session.amount, session.currency)}.</p></div></div>}
+            {token && !submitted && <div className="eq-authorize"><label className="eq-consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><span>I authorize a payment of <strong>{money(session.amount, session.currency)}</strong> on my card{session.environment === "test" ? " in the test environment" : ""}.</span></label><button type="button" className="eq-button eq-primary" onClick={authorize} disabled={!consent}>Pay {money(session.amount, session.currency)}</button></div>}
+            {submitting && <p className="eq-footnote" role="status">Processing payment… Complete any bank verification when prompted.</p>}
+          </section>}
+          {stage === 2 && result && <section className="eq-card" aria-labelledby="eq-complete-title">
+            <div className="eq-card-heading"><span className="eq-section-icon"><i className="bx bx-receipt" aria-hidden="true" /></span><div><h2 id="eq-complete-title" ref={stepHeading} tabIndex={-1}>{paid ? steps[2] : "Payment status"}</h2></div></div>
+            <div className={`eq-result ${paid ? "eq-result-success" : "eq-result-attention"}`}>
+              <div role="status"><h3>{resultTitle}</h3><p>{paid ? "Cybersource confirmed that your payment settled." : result.message || result.error_information?.message || "Collection is not yet confirmed. Check this reference before paying again."}</p><dl><dt>Status</dt><dd>{result.payment_status || "UNKNOWN"}</dd>{result.payment_id && <><dt>Payment ID</dt><dd>{result.payment_id}</dd></>}<dt>Reference</dt><dd>{result.reference || session?.reference || receipt?.reference}</dd></dl></div>
+              <div className="eq-result-actions">
+                {receipt && !paid && <button type="button" className="eq-button eq-outline" disabled={checking} onClick={() => checkStatus()}>{checking ? "Checking…" : "Check payment status"}</button>}
+                {paid && <button type="button" className="eq-button eq-outline" onClick={newPayment}>Start a new payment</button>}
+              </div>
+            </div>
+          </section>}
         </div><aside className="eq-sidebar"><section className="eq-summary"><p className="eq-eyebrow">PAYMENT SUMMARY</p><div className="eq-summary-merchant"><span>eM</span><div><strong>eMakato</strong><p>Equity card payment</p></div></div><div className="eq-summary-row"><span>Payment method</span><strong>Visa / Mastercard</strong></div><div className="eq-summary-row"><span>Currency</span><strong>{session?.currency || currency}</strong></div><div className="eq-total"><span>Payment amount</span><strong>{money(session?.amount || amount, session?.currency || currency)}</strong></div><p className="eq-summary-note">Payment requests include authorization and capture. Collection is confirmed after settlement.</p>{session && <div className="eq-session-info"><span>{expired ? "Session expired" : `Session active · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}</span><small>Reference</small><code>{session.reference}</code></div>}</section>
           <div className="eq-live-note"><i className="bx bx-info-circle" aria-hidden="true" /><div><strong>{environment === "production" ? "You are using production" : environment === "test" ? "You are using the test environment" : "Secure card payments"}</strong><p>{environment === "production" ? "Paying will request a real charge. " : ""}Complete any bank verification when prompted. Check uncertain outcomes before paying again.</p></div></div>
           <div className="eq-trust"><i className="bx bx-shield-quarter" aria-hidden="true" /><span>Card details handled by Cybersource<br /><small>Visa Acceptance Solutions</small></span></div>
