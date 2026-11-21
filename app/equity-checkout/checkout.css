@@ -86,6 +86,8 @@
 .eq-result dt { font-weight: 600; margin-top: 10px; }
 .eq-result dd { margin: 4px 0 0; overflow-wrap: anywhere; }
 .eq-result-actions { margin-top: 18px; }
+.eq-reset { display: flex; width: 100%; margin-top: 8px; border: 0; background: transparent; color: var(--eq-primary); }
+.eq-reset:hover:not(:disabled) { text-decoration: underline; }
 @media (max-width: 1200px) { .eq-grid { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; } .eq-card { padding: 24px; } .eq-field-grid { grid-template-columns: 1fr; } .eq-networks { display: none; } }
 @media (max-width: 767px) { .eq-grid { grid-template-columns: 1fr; } .eq-heading { align-items: flex-start; } .eq-heading h2 { font-size: 18px; } .eq-heading p:last-child { font-size: 12px; } .eq-steps { gap: 12px; justify-content: space-between; } .eq-steps li { font-size: 11px; gap: 6px; } .eq-steps li > span { flex-shrink: 0; width: 24px; height: 24px; } .eq-trust { margin-bottom: 24px; } }
 @media (max-width: 575px) { .eq-card, .eq-summary { padding: 24px 18px; } .eq-steps { gap: 8px; } .eq-steps li { font-size: 10px; } .eq-live { font-size: 11px; padding: 4px 8px; } .eq-heading { gap: 10px; } }

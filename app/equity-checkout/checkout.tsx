@@ -33,6 +33,8 @@ type UnifiedPayments = {
 };
 type Receipt = { checkout_id: string; reference: string; amount: string; currency: string; payment_id?: string; environment: "production" | "test" };
 const receiptKey = "equity-checkout-receipt";
+const defaultAmount = "1000.00";
+const defaultCurrency = "TZS";
 const steps = ["Payment details", "Secure card entry", "Complete payment"];
 type AcceptInstance = {
   unifiedPayments: (sidebar: boolean) => Promise<UnifiedPayments>;
@@ -81,8 +83,8 @@ async function post(action: string, body: object) {
 const money = (amount: string, currency: string) => `${currency} ${Number(amount || 0).toLocaleString("en-TZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function EquityCheckout() {
-  const [amount, setAmount] = useState("1000.00");
-  const [currency, setCurrency] = useState("TZS");
+  const [amount, setAmount] = useState(defaultAmount);
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [session, setSession] = useState<CheckoutSession | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -143,13 +145,14 @@ export default function EquityCheckout() {
   }, [expired, submitted]);
   useEffect(() => {
     if (!receipt || !submitted || submitting || result?.paid) return;
+    const current = generation.current;
     let active = true;
     let attempts = 0;
     const timer = window.setInterval(async () => {
       if (++attempts >= 8) window.clearInterval(timer);
       try {
         const data = await post("status", { checkout_id: receipt.checkout_id, payment_id: receipt.payment_id });
-        if (active) setResult(data);
+        if (active && current === generation.current) setResult(data);
         if (data.paid && data.verified) window.clearInterval(timer);
       } catch { /* Keep the last result. Manual status checking remains available. */ }
     }, 15000);
@@ -263,8 +266,15 @@ export default function EquityCheckout() {
     : result?.payment_status === "UNKNOWN" ? "Payment outcome unconfirmed" : "Payment needs attention";
   const environment = session?.environment || receipt?.environment;
 
-  function newPayment() {
-    if (!result?.verified || !result.paid) return;
+  function resetCheckout() {
+    if (!result || checking || submitting) return;
+    if (!paid) {
+      const reference = result.reference || receipt?.reference;
+      const referenceLine = reference ? `\n\nPayment reference: ${reference}` : "";
+      if (!window.confirm(`Reset this checkout? This clears the payment status from this tab. It does not cancel or refund the previous attempt. Check Cybersource Business Center before retrying the same payment.${referenceLine}`)) return;
+      setAmount(defaultAmount);
+      setCurrency(defaultCurrency);
+    }
     try { sessionStorage.removeItem(receiptKey); } catch { /* Storage may be disabled. */ }
     generation.current++; instance.current?.dispose(); instance.current = null; paymentsInstance.current = null;
     authorizing.current = false; setSubmitted(false); setReceipt(null); setResult(null); setSession(null);
@@ -311,7 +321,7 @@ export default function EquityCheckout() {
               <div role="status"><h3>{resultTitle}</h3><p>{paid ? "Cybersource confirmed that your payment settled." : result.message || result.error_information?.message || "Collection is not yet confirmed. Check this reference before paying again."}</p><dl><dt>Status</dt><dd>{result.payment_status || "UNKNOWN"}</dd>{result.payment_id && <><dt>Payment ID</dt><dd>{result.payment_id}</dd></>}<dt>Reference</dt><dd>{result.reference || session?.reference || receipt?.reference}</dd></dl></div>
               <div className="eq-result-actions">
                 {receipt && !paid && <button type="button" className="eq-button eq-outline" disabled={checking} onClick={() => checkStatus()}>{checking ? "Checking…" : "Check payment status"}</button>}
-                {paid && <button type="button" className="eq-button eq-outline" onClick={newPayment}>Start a new payment</button>}
+                <button type="button" className={`eq-button ${paid ? "eq-outline" : "eq-reset"}`} disabled={checking} onClick={resetCheckout}>{paid ? "Start a new payment" : "Reset checkout"}</button>
               </div>
             </div>
           </section>}
